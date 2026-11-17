@@ -1,0 +1,53 @@
+name: CI Pipeline
+
+# Конвеєр запускається для pull request у develop, а також після подання рев'ю,
+# щоб повторно перевірити PR, коли рев'ю схвалено.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, review_requested]
+    branches:
+      - develop
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build:
+    if: github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run tests
+        run: pytest --junitxml=report.xml --cov=src --cov-report=xml --cov-report=term
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            report.xml
+            coverage.xml
+
+  analysis:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
